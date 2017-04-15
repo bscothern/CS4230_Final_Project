@@ -11,7 +11,7 @@
 #SBATCH -o 64_2.out
 #SBATCH -e 64_2.err
 
-cd $HOME/FinalProject
+cd $HOME/FinalProject/Test_Cases
 
 cat 64x64_2.in | xargs ../factor_seq -t
 

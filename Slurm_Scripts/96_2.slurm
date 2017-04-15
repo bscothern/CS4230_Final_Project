@@ -11,7 +11,7 @@
 #SBATCH -o 96_2.out
 #SBATCH -e 96_2.err
 
-cd $HOME/FinalProject
+cd $HOME/FinalProject/Test_Cases
 
 cat 96x96_2.in | xargs ../factor_seq -t
 

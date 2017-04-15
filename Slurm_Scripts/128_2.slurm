@@ -11,7 +11,7 @@
 #SBATCH -o 128_2.out
 #SBATCH -e 128_2.err
 
-cd $HOME/FinalProject
+cd $HOME/FinalProject/Test_Cases
 
 cat 128x128_2.in | xargs ../factor_seq -t
 
