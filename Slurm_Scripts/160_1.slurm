@@ -13,5 +13,5 @@
 
 cd $HOME/FinalProject
 
-srun cat 160x160_1.in | xargs ../factor_seq -t
+cat 160x160_1.in | xargs ../factor_seq -t
 

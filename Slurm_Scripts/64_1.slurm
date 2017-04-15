@@ -13,5 +13,5 @@
 
 cd $HOME/FinalProject/Test_Cases
 
-srun cat 64x64_1.in | xargs ../factor_seq -t
+cat 64x64_1.in | xargs ../factor_seq -t
 
