@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --time=24:00:00
+#SBATCH --time=168:00:00
 #SBATCH --nodes=1
 
 #SBATCH --account=soc-kp
