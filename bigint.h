@@ -29,6 +29,7 @@
 #include <set>
 #include <queue>
 #include <math.h>
+#include <omp.h>
 
 using namespace std;
 
@@ -775,143 +776,154 @@ vector<bigint> bigint::factor(bool verbose) const {
     static const int POLLARD_RHO_ITERATIONS = 100;
     static const int DOUBLE_LARGE_PRIME_SET_SIZE = 10000000;
     
+    int running = 1;
+    vector<bigint> global_ret;
+    
     bigint n = *this;
     
-    if(verbose) {
-        cout << "Starting trial division" << endl;
-    }
+    // Pulled out of OpenMP sections to maintain scope
+    int fsz;
+    vector<pair<int, bigint> > f_base;
+    bigint rt;
+    vector<pair<long long, int> > q;
     
-    // Search for small prime factors using trial division.
-    vector<bigint> ret;
-    int div_bound = TRIVIAL_DIVISION;
-    if(n.sqrt() < div_bound) {
-        div_bound = n.sqrt().to_int();
-    }
-    for(int i = 2; i <= div_bound; i++) {
-        while(n % i == 0) {
-            n /= i;
-            ret.push_back(i);
-        }
-    }
-    if(n == 1 || n <= bigint(div_bound) * div_bound) {
-        if(n != 1) {
-            ret.push_back(n);
-        }
-        return ret;
-    }
-    
-    // Check if we are probably wasting our time.
-    if(n.probably_prime()) {
-        ret.push_back(n);
-        return ret;
-    }
-    
-    if(verbose) {
-        cout << "Finished trial division, trying Pollard's Rho algorithm" << endl;
-    }
-    
-    // Try Pollard's Rho algorithm for a little bit.
-    for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
-        bigint c = random(n.bits() + 4) % n;
-        bigint x = 2;
-        bigint y = 2;
-        bigint g = 1;
-        for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) {
-            x *= x; x += c; x %= n;
-            y *= y; y += c; y %= n;
-            y *= y; y += c; y %= n;
-            g = (x - y).abs().gcd(n);
-        }
-        if(g != 1 && g != n) {
-            if(verbose) {
-                cout << "Pollard's Rho algorithm found non-trivial factor: " << g << endl;
+    //MARK:- Basic Factoring & Setup
+    #pragma omp parallel sections num_threads(3)
+    {
+        //MARK: Simple Factoring
+        #pragma omp section
+        {
+            vector<bigint> ret;
+            // Search for small prime factors using trial division.
+            int div_bound = TRIVIAL_DIVISION;
+            if(n.sqrt() < div_bound) {
+                div_bound = n.sqrt().to_int();
+            }
+            for(int i = 2; i <= div_bound; i++) {
+                while(n % i == 0) {
+                    n /= i;
+                    ret.push_back(i);
+                }
+                if (!running) {
+                    break;
+                }
+            }
+            if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) {
+                if(n != 1) {
+                    ret.push_back(n);
+                }
+                running = 0;
             }
             
-            // Divide and recursively factor each half and merge the lists.
-            vector<bigint> fa = g.factor(verbose);
-            vector<bigint> fb = (n / g).factor(verbose);
-            for(int i = 0; i < fa.size(); i++) {
-                ret.push_back(fa[i]);
-            }
-            for(int i = 0; i < fb.size(); i++) {
-                ret.push_back(fb[i]);
-            }
-            sort(ret.begin(), ret.end());
-            return ret;
-        }
-    }
-    
-    // Calculate how large the factor base should be.  This formula comes from
-    // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
-    int fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))),
-                       sq_root(2) / 4) * 2;
-    
-    // Perform the Sieve of Eratosthenes to get a list of small primes to use
-    // as the factor base.  This only needs to be done once.  If large primes are
-    // required the probably_prime method will be used instead.
-    static vector<bool> is_prime;
-    if(is_prime.empty()) {
-        is_prime = vector<bool>(PRIME_SIEVE, true);
-        for(int i = 2; i * i < PRIME_SIEVE; i++) {
-            for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) {
-                is_prime[j] = false;
+            // Check if we are probably wasting our time.
+            if (running && (n.probably_prime())) {
+                ret.push_back(n);
+                running = 0;
             }
         }
-    }
     
-    // Calculate the factor base.  A factor base consists of primes p such that
-    // n has a quadratic residue modulo p.
-    vector<pair<int, bigint> > f_base;
-    for(int p = 2, f = 0; f < fsz; p++) {
-        if(p < PRIME_SIEVE && !is_prime[p]) {
-            continue;
-        }
-        bigint nm = n % p;
-        if(nm.legendre(p) != 1) {
-            continue;
-        }
-        if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) {
-            continue;
+        //MARK: Pollard Rho Factoring
+        #pragma omp section
+        {
+            vector<bigint> ret;
+            // Try Pollard's Rho algorithm for a little bit.
+            for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
+                bigint c = random(n.bits() + 4) % n;
+                bigint x = 2;
+                bigint y = 2;
+                bigint g = 1;
+                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) {
+                    x *= x; x += c; x %= n;
+                    y *= y; y += c; y %= n;
+                    y *= y; y += c; y %= n;
+                    g = (x - y).abs().gcd(n);
+                    if (!running) {
+                        break;
+                    }
+                }
+                if (running && (g != 1 && g != n)) {
+                    // Divide and recursively factor each half and merge the lists.
+                    vector<bigint> fa = g.factor(verbose);
+                    vector<bigint> fb = (n / g).factor(verbose);
+                    for(int i = 0; i < fa.size(); i++) {
+                        ret.push_back(fa[i]);
+                    }
+                    for(int i = 0; i < fb.size(); i++) {
+                        ret.push_back(fb[i]);
+                    }
+                    sort(ret.begin(), ret.end());
+                    running = 0;
+                }
+            }
         }
         
-        f_base.push_back(make_pair(p, nm.mod_square_root(p)));
-        f++;
-        
-        if(verbose) {
-            cout << "Found " << f << " of " << fsz << " factors - " << p << endl;
+        //MARK: Quadratic Seive Setup
+        #pragma omp section
+        {
+            // Calculate how large the factor base should be.  This formula comes from
+            // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
+            fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))),
+                               sq_root(2) / 4) * 2;
+            
+            // Perform the Sieve of Eratosthenes to get a list of small primes to use
+            // as the factor base.  This only needs to be done once.  If large primes are
+            // required the probably_prime method will be used instead.
+            static vector<bool> is_prime;
+            if(is_prime.empty()) {
+                is_prime = vector<bool>(PRIME_SIEVE, true);
+                for(int i = 2; i * i < PRIME_SIEVE; i++) {
+                    for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) {
+                        is_prime[j] = false;
+                    }
+                }
+            }
+            
+            // Calculate the factor base.  A factor base consists of primes p such that
+            // n has a quadratic residue modulo p.
+            for(int p = 2, f = 0; f < fsz; p++) {
+                if(p < PRIME_SIEVE && !is_prime[p]) {
+                    continue;
+                }
+                bigint nm = n % p;
+                if(nm.legendre(p) != 1) {
+                    continue;
+                }
+                if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) {
+                    continue;
+                }
+                
+                f_base.push_back(make_pair(p, nm.mod_square_root(p)));
+                f++;
+            }
+            
+            // Initialize the rolling queue of known prime factors starting at rt.
+            // Don't include 2 and handle it as a special case.
+            rt = n.sqrt() + 1;
+            if(n.get_bit(0) != rt.get_bit(0)) rt++;
+            int bigp = f_base.back().first + 1;
+            vector<int> prime_count(bigp, 0);
+            for(int i = 1; i < f_base.size(); i++) {
+                int p = f_base[i].first;
+                bigint srt = f_base[i].second;
+                
+                int start_a = (srt + p - rt % p) % p;
+                int start_b = (-srt + 2 * p - rt % p) % p;
+                if(start_a % 2) start_a += p; start_a /= 2;
+                if(start_b % 2) start_b += p; start_b /= 2;
+                q.push_back(make_pair(start_a, p));
+                prime_count[start_a]++;
+                if(start_a != start_b) {
+                    prime_count[start_b]++;
+                    q.push_back(make_pair(start_b, p));
+                }
+            }
+            for(int i = q.size() - 1; i >= 0; i--) {
+                heapify(q, i);
+            }
         }
     }
     
-    // Initialize the rolling queue of known prime factors starting at rt.
-    // Don't include 2 and handle it as a special case.
-    bigint rt = n.sqrt() + 1;
-    if(n.get_bit(0) != rt.get_bit(0)) rt++;
-    vector<pair<long long, int> > q;
-    int bigp = f_base.back().first + 1;
-    vector<int> prime_count(bigp, 0);
-    for(int i = 1; i < f_base.size(); i++) {
-        int p = f_base[i].first;
-        bigint srt = f_base[i].second;
-        
-        int start_a = (srt + p - rt % p) % p;
-        int start_b = (-srt + 2 * p - rt % p) % p;
-        if(start_a % 2) start_a += p; start_a /= 2;
-        if(start_b % 2) start_b += p; start_b /= 2;
-        q.push_back(make_pair(start_a, p));
-        prime_count[start_a]++;
-        if(start_a != start_b) {
-            prime_count[start_b]++;
-            q.push_back(make_pair(start_b, p));
-        }
-    }
-    for(int i = q.size() - 1; i >= 0; i--) {
-        heapify(q, i);
-    }
-    
-    if(verbose) {
-        cout << "Factor base computed, beggining to sieve" << endl;
-    }
-    
+    //MARK:- Quadratic Seive
     // Tracks pairs (x, y) such that y = x^2 - n and y factors over the factor base.
     vector<pair<bigint, bigint> > field;
     
