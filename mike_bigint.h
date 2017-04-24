@@ -786,6 +786,8 @@ vector<bigint> bigint::factor(bool verbose) const {
     vector<pair<int, bigint> > f_base;
     bigint rt;
     vector<pair<long long, int> > q;
+
+    vector<int> prime_count(0, 0);
     
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3)
@@ -857,7 +859,7 @@ vector<bigint> bigint::factor(bool verbose) const {
             }
         }
 
-        vector<int> prime_count(0, 0);
+        
         
         //MARK: Quadratic Seive Setup
         #pragma omp section
