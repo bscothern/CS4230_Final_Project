@@ -1116,10 +1116,6 @@ vector<bigint> bigint::factor(bool verbose) const {
                     if(it != dlp.end() && it->first == iv) 
                     {
                         // We found two factors with the same large prime!
-                        if(verbose) 
-                        {
-                            cout << "Found double prime " << iv << endl;
-                        }
                         added = true;
                         bigint ort = rt - 2 * (i - it->second);
                         field.push_back(make_pair(rt * ort, (rt * rt - n) * (ort * ort - n)));
@@ -1146,12 +1142,6 @@ vector<bigint> bigint::factor(bool verbose) const {
         
         if(added) 
         {
-            if(verbose) 
-            {
-                cout << i << ": " << field.size() << " of " << fsz + 1 << " with "
-                << prime_count[i % bigp] << " primes and maxdiv " << maxdiv << endl;
-            }
-            
             // Create a row for this solution.
             vector<int> v_primes;
             bigint v = field.back().second;
@@ -1197,12 +1187,6 @@ vector<bigint> bigint::factor(bool verbose) const {
             } 
             else 
             {
-                // We have a linear dependence! Hoorahh!
-                if(verbose) 
-                {
-                    cout << "Linear dependence detected" << endl;
-                }
-                
                 // Calculate a and b such that a^2 = b^2 mod n.
                 bigint a = 1;
                 bigint b = 1;
@@ -1242,15 +1226,22 @@ vector<bigint> bigint::factor(bool verbose) const {
                     bigint factor = f.gcd(n);
                     if(factor != 1 && factor != n) 
                     {
-                        if(verbose) 
-                        {
-                            cout << "Non-trivial factor calculated: " << factor << endl;
-                        }
-                        
                         // Divide and recursively factor each half and merge the lists.
-                        vector<bigint> fa = factor.factor(verbose);
-                        vector<bigint> fb = (n / factor).factor(verbose);
+                        vector<bigint> fa;
+                        vector<bigint> fb;
                         
+                        #pragma omp parallel sections num_threads(3)
+                        {
+                            #pragma omp section
+                            {
+                                fa =  = factor.factor(verbose);
+                            }
+                            #pragma omp section
+                            {
+                                fb = (n / factor).factor(verbose);
+                            }
+                        }
+
                         for(int i = 0; i < fa.size(); i++) 
                         {
                             ret.push_back(fa[i]);
