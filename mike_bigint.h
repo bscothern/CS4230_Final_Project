@@ -29,7 +29,7 @@
 #include <set>
 #include <queue>
 #include <math.h>
-//#include <omp.h>
+#include <omp.h>
 
 using namespace std;
 
