@@ -29,7 +29,7 @@
 #include <set>
 #include <queue>
 #include <math.h>
-#include <omp.h>
+//#include <omp.h>
 
 using namespace std;
 
@@ -1090,12 +1090,15 @@ vector<bigint> bigint::factor(bool verbose) const {
                         // Divide and recursively factor each half and merge the lists.
                         vector<bigint> fa = factor.factor(verbose);
                         vector<bigint> fb = (n / factor).factor(verbose);
+                        
                         for(int i = 0; i < fa.size(); i++) {
                             ret.push_back(fa[i]);
                         }
+
                         for(int i = 0; i < fb.size(); i++) {
                             ret.push_back(fb[i]);
                         }
+
                         sort(ret.begin(), ret.end());
                         return ret;
                     }
