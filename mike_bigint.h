@@ -792,6 +792,9 @@ vector<bigint> bigint::factor(bool verbose) const {
 
     //** originally declared aroune line 913 */
     int bigp = 0;
+
+    //** originally declared around line 834 */
+    vector<bigint> ret;
     
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3)
@@ -831,7 +834,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         //MARK: Pollard Rho Factoring
         #pragma omp section
         {
-            vector<bigint> ret;
+            //vector<bigint> ret;
             // Try Pollard's Rho algorithm for a little bit.
             for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
                 bigint c = random(n.bits() + 4) % n;
@@ -851,10 +854,12 @@ vector<bigint> bigint::factor(bool verbose) const {
                     // Divide and recursively factor each half and merge the lists.
                     vector<bigint> fa = g.factor(verbose);
                     vector<bigint> fb = (n / g).factor(verbose);
-                    for(int i = 0; i < fa.size(); i++) {
+                    for(int i = 0; i < fa.size(); i++) 
+                    {
                         ret.push_back(fa[i]);
                     }
-                    for(int i = 0; i < fb.size(); i++) {
+                    for(int i = 0; i < fb.size(); i++) 
+                    {
                         ret.push_back(fb[i]);
                     }
                     sort(ret.begin(), ret.end());
@@ -876,10 +881,13 @@ vector<bigint> bigint::factor(bool verbose) const {
             // as the factor base.  This only needs to be done once.  If large primes are
             // required the probably_prime method will be used instead.
             static vector<bool> is_prime;
-            if(is_prime.empty()) {
+            if(is_prime.empty()) 
+            {
                 is_prime = vector<bool>(PRIME_SIEVE, true);
-                for(int i = 2; i * i < PRIME_SIEVE; i++) {
-                    for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) {
+                for(int i = 2; i * i < PRIME_SIEVE; i++) 
+                {
+                    for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) 
+                    {
                         is_prime[j] = false;
                     }
                 }
@@ -893,6 +901,7 @@ vector<bigint> bigint::factor(bool verbose) const {
                 {
                     continue;
                 }
+
                 bigint nm = n % p;
                 
                 if(nm.legendre(p) != 1) 
@@ -992,14 +1001,19 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
         
         bool added = false;
-        if(v <= 0x7FFFFFFF) {
+        if(v <= 0x7FFFFFFF) 
+        {
             int iv = v.to_int();
-            if(iv != 1) {
-                if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv) {
+            if(iv != 1) 
+            {
+                if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv) 
+                {
                     typeof(dlp.begin()) it = dlp.lower_bound(make_pair(iv, 0));
-                    if(it != dlp.end() && it->first == iv) {
+                    if(it != dlp.end() && it->first == iv) 
+                    {
                         // We found two factors with the same large prime!
-                        if(verbose) {
+                        if(verbose) 
+                        {
                             cout << "Found double prime " << iv << endl;
                         }
                         added = true;
@@ -1007,22 +1021,29 @@ vector<bigint> bigint::factor(bool verbose) const {
                         field.push_back(make_pair(rt * ort, (rt * rt - n) * (ort * ort - n)));
                         f_base.push_back(make_pair(iv, -1));
                         dlp.erase(it);
-                    } else {
+                    } 
+                    else 
+                    {
                         dlp.insert(make_pair(iv, i));
-                        if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE) {
+                        if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE) 
+                        {
                             dlp.erase(--dlp.end());
                         }
                     }
                 }
-            } else if(iv == 1) {
+            }
+            else if(iv == 1) 
+            {
                 // Lucky day, v factored completely over the factor base.
                 added = true;
                 field.push_back(make_pair(rt, rt * rt - n));
             }
         }
         
-        if(added) {
-            if(verbose) {
+        if(added) 
+        {
+            if(verbose) 
+            {
                 cout << i << ": " << field.size() << " of " << fsz + 1 << " with "
                 << prime_count[i % bigp] << " primes and maxdiv " << maxdiv << endl;
             }
@@ -1030,13 +1051,17 @@ vector<bigint> bigint::factor(bool verbose) const {
             // Create a row for this solution.
             vector<int> v_primes;
             bigint v = field.back().second;
-            for(int j = 0; j < fsz; j++) {
+            for(int j = 0; j < fsz; j++) 
+            {
                 int cnt = 0;
-                while(v % f_base[j].first == 0) {
+                while(v % f_base[j].first == 0) 
+                {
                     v /= f_base[j].first;
                     cnt++;
                 }
-                if(cnt % 2) {
+
+                if(cnt % 2) 
+                {
                     v_primes.push_back(j);
                 }
             }
@@ -1061,9 +1086,12 @@ vector<bigint> bigint::factor(bool verbose) const {
                         mat[j].second = list_xor(mat.back().second, mat[j].second);
                     }
                 }
-            } else {
+            } 
+            else 
+            {
                 // We have a linear dependence! Hoorahh!
-                if(verbose) {
+                if(verbose) 
+                {
                     cout << "Linear dependence detected" << endl;
                 }
                 
@@ -1072,33 +1100,42 @@ vector<bigint> bigint::factor(bool verbose) const {
                 bigint b = 1;
                 vector<int> & v = mat.back().second;
                 vector<bool> parity(fsz, false);
-                for(int k = 0; k < v.size(); k++) {
+                for(int k = 0; k < v.size(); k++) 
+                {
                     a *= field[v[k]].first; a %= n;
                     bigint val = field[v[k]].second;
-                    for(int s = 0; s < f_base.size(); s++) {
-                        while(val % f_base[s].first == 0) {
+                    for(int s = 0; s < f_base.size(); s++) 
+                    {
+                        while(val % f_base[s].first == 0) 
+                        {
                             val /= f_base[s].first;
                             parity[s] = !parity[s];
-                            if(!parity[s]) {
+                            if(!parity[s]) 
+                            {
                                 b *= f_base[s].first; b %= n;
                             }
                         }
                     }
                 }
-                if(a < b) {
+                if(a < b) 
+                {
                     a.swap(b);
                 }
                 
-                if(a * a % n != b * b % n) {
+                if(a * a % n != b * b % n) 
+                {
                     cout << "Computation error: squares not congruent" << endl;
                 }
                 
                 // We now have (a + b)(a - b) = n.  Calculate gcd(a + b, n) and
                 // gcd(a - b, n) to try to find non trivial factor.  This usually works.
-                for(bigint f = a - b; f <= a + b; f += b << 1) {
+                for(bigint f = a - b; f <= a + b; f += b << 1) 
+                {
                     bigint factor = f.gcd(n);
-                    if(factor != 1 && factor != n) {
-                        if(verbose) {
+                    if(factor != 1 && factor != n) 
+                    {
+                        if(verbose) 
+                        {
                             cout << "Non-trivial factor calculated: " << factor << endl;
                         }
                         
