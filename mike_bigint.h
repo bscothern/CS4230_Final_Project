@@ -800,7 +800,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     #pragma omp parallel sections num_threads(3)
     {
         //MARK: Simple Factoring
-        #pragma omp section
+        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
             vector<bigint> ret;
             // Search for small prime factors using trial division.
@@ -832,7 +832,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
     
         //MARK: Pollard Rho Factoring
-        #pragma omp section
+        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
             //vector<bigint> ret;
             // Try Pollard's Rho algorithm for a little bit.
@@ -871,7 +871,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         
         
         //MARK: Quadratic Seive Setup
-        #pragma omp section
+        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
