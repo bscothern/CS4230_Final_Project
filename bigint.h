@@ -786,6 +786,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     vector<pair<int, bigint> > f_base;
     bigint rt;
     vector<pair<long long, int> > q;
+    vector<bigint> ret;
     
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3)
@@ -793,7 +794,6 @@ vector<bigint> bigint::factor(bool verbose) const {
         //MARK: Simple Factoring
         #pragma omp section
         {
-            vector<bigint> ret;
             // Search for small prime factors using trial division.
             int div_bound = TRIVIAL_DIVISION;
             if(n.sqrt() < div_bound) {
@@ -895,32 +895,32 @@ vector<bigint> bigint::factor(bool verbose) const {
                 f_base.push_back(make_pair(p, nm.mod_square_root(p)));
                 f++;
             }
-            
-            // Initialize the rolling queue of known prime factors starting at rt.
-            // Don't include 2 and handle it as a special case.
-            rt = n.sqrt() + 1;
-            if(n.get_bit(0) != rt.get_bit(0)) rt++;
-            int bigp = f_base.back().first + 1;
-            vector<int> prime_count(bigp, 0);
-            for(int i = 1; i < f_base.size(); i++) {
-                int p = f_base[i].first;
-                bigint srt = f_base[i].second;
-                
-                int start_a = (srt + p - rt % p) % p;
-                int start_b = (-srt + 2 * p - rt % p) % p;
-                if(start_a % 2) start_a += p; start_a /= 2;
-                if(start_b % 2) start_b += p; start_b /= 2;
-                q.push_back(make_pair(start_a, p));
-                prime_count[start_a]++;
-                if(start_a != start_b) {
-                    prime_count[start_b]++;
-                    q.push_back(make_pair(start_b, p));
-                }
-            }
-            for(int i = q.size() - 1; i >= 0; i--) {
-                heapify(q, i);
-            }
         }
+    }
+    
+    // Initialize the rolling queue of known prime factors starting at rt.
+    // Don't include 2 and handle it as a special case.
+    rt = n.sqrt() + 1;
+    if(n.get_bit(0) != rt.get_bit(0)) rt++;
+    int bigp = f_base.back().first + 1;
+    vector<int> prime_count(bigp, 0);
+    for(int i = 1; i < f_base.size(); i++) {
+        int p = f_base[i].first;
+        bigint srt = f_base[i].second;
+        
+        int start_a = (srt + p - rt % p) % p;
+        int start_b = (-srt + 2 * p - rt % p) % p;
+        if(start_a % 2) start_a += p; start_a /= 2;
+        if(start_b % 2) start_b += p; start_b /= 2;
+        q.push_back(make_pair(start_a, p));
+        prime_count[start_a]++;
+        if(start_a != start_b) {
+            prime_count[start_b]++;
+            q.push_back(make_pair(start_b, p));
+        }
+    }
+    for(int i = q.size() - 1; i >= 0; i--) {
+        heapify(q, i);
     }
     
     //MARK:- Quadratic Seive

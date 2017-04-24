@@ -29,6 +29,7 @@
 #include <set>
 #include <queue>
 #include <math.h>
+#include <stdio.h>
 #include <omp.h>
 
 using namespace std;
@@ -796,13 +797,24 @@ vector<bigint> bigint::factor(bool verbose) const {
     //** originally declared around line 834 */
     vector<bigint> ret;
     
+#if 1
+#define SECTION_PRINT 3
+#define SEC_PRINTF(sec, ...) do { if (SECTION_PRINT == sec || SECTION_PRINT == -1) printf(__VA_ARGS__); } while(0);
+#else
+#define SEC_PRINTF(sec, ...)
+#endif
+    
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3) lastprivate(prime_count, bigp) //firstprivate(prime_count, bigp) 
     {
         //MARK: Simple Factoring
         #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
-            vector<bigint> ret;
+            SEC_PRINTF(1, "Enter Section 1\n");
+
+            vector<bigint> local_ret;
+            bool shouldSet = false;
+
             // Search for small prime factors using trial division.
             int div_bound = TRIVIAL_DIVISION;
             if(n.sqrt() < div_bound) 
@@ -814,7 +826,7 @@ vector<bigint> bigint::factor(bool verbose) const {
                 while(n % i == 0) 
                 {
                     n /= i;
-                    ret.push_back(i);
+                    local_ret.push_back(i);
                 }
                 if (!running) 
                 {
@@ -823,24 +835,37 @@ vector<bigint> bigint::factor(bool verbose) const {
             }
             if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) 
             {
+                
+                running = 0;
+                shouldSet = true;
                 if(n != 1) 
                 {
-                    ret.push_back(n);
+                    local_ret.push_back(n);
                 }
-                running = 0;
             }
             
             // Check if we are probably wasting our time.
-            if (running && (n.probably_prime())) {
-                ret.push_back(n);
+            if (running && (n.probably_prime()))
+            {
                 running = 0;
+                shouldSet = true;
+                local_ret.push_back(n);
             }
+            if (shouldSet)
+            {
+                ret = local_ret;
+            }
+            SEC_PRINTF(1, "Exit Section 1\n");
         }
     
         //MARK: Pollard Rho Factoring
         #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
-            vector<bigint> ret;
+            SEC_PRINTF(2, "Enter Section 2\n");
+            
+            vector<bigint> local_ret;
+            bool shouldSet = false;
+
             // Try Pollard's Rho algorithm for a little bit.
             for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
                 bigint c = random(n.bits() + 4) % n;
@@ -860,27 +885,35 @@ vector<bigint> bigint::factor(bool verbose) const {
                 }
                 if (running && (g != 1 && g != n)) 
                 {
+                    running = 0;
+                    shouldSet = true;
                     // Divide and recursively factor each half and merge the lists.
                     vector<bigint> fa = g.factor(verbose);
                     vector<bigint> fb = (n / g).factor(verbose);
                     for(int i = 0; i < fa.size(); i++) 
                     {
-                        ret.push_back(fa[i]);
+                        local_ret.push_back(fa[i]);
                     }
                     for(int i = 0; i < fb.size(); i++) 
                     {
-                        ret.push_back(fb[i]);
+                        local_ret.push_back(fb[i]);
                     }
-                    sort(ret.begin(), ret.end());
-                    running = 0;
+                    sort(local_ret.begin(), local_ret.end());
+                }
+                if (shouldSet)
+                {
+                    ret = local_ret;
                 }
             }
+            SEC_PRINTF(2, "Exit Section 2\n");
         }
 
         
         //MARK: Quadratic Seive Setup
         #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
+            SEC_PRINTF(3, "Enter Section 3\n");
+            
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
             fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))), sq_root(2) / 4) * 2;
@@ -901,61 +934,116 @@ vector<bigint> bigint::factor(bool verbose) const {
                 }
             }
             
-            // Calculate the factor base.  A factor base consists of primes p such that
-            // n has a quadratic residue modulo p.
-            for(int p = 2, f = 0; f < fsz; p++) 
+            
+            SEC_PRINTF(3, "3: Passed first block\n");
+            
+            if (running)
             {
-                if(p < PRIME_SIEVE && !is_prime[p]) 
+                // Calculate the factor base.  A factor base consists of primes p such that
+                // n has a quadratic residue modulo p.
+                for(int p = 2, f = 0; f < fsz; p++)
                 {
-                    continue;
-                }
+                    if (!running)
+                    {
+                        break;
+                    }
 
-                bigint nm = n % p;
-                
-                if(nm.legendre(p) != 1) 
-                {
-                    continue;
+                    if(p < PRIME_SIEVE && !is_prime[p])
+                    {
+                        continue;
+                    }
+                    
+                    bigint nm = n % p;
+                    
+                    if(nm.legendre(p) != 1)
+                    {
+                        continue;
+                    }
+                    
+                    if(p >= PRIME_SIEVE && !bigint(p).probably_prime())
+                    {
+                        continue;
+                    }
+                    SEC_PRINTF(3, "Pushing back of f_base\n");
+                    f_base.push_back(make_pair(p, nm.mod_square_root(p)));
+                    f++;
                 }
-                
-                if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) 
-                {
-                    continue;
-                }
-                
-                f_base.push_back(make_pair(p, nm.mod_square_root(p)));
-                f++;
             }
             
-            // Initialize the rolling queue of known prime factors starting at rt.
-            // Don't include 2 and handle it as a special case.
-            rt = n.sqrt() + 1;
-            if(n.get_bit(0) != rt.get_bit(0)) rt++;
-            /*int*/ bigp = f_base.back().first + 1;
-            ///*vector<int>*/ prime_count(bigp, 0);
-            prime_count = vector<int>(bigp,0);
+            SEC_PRINTF(3, "3: Passed second block\n");
             
-            for(int i = 1; i < f_base.size(); i++) 
+            if (running)
             {
-                int p = f_base[i].first;
-                bigint srt = f_base[i].second;
+                // Initialize the rolling queue of known prime factors starting at rt.
+                // Don't include 2 and handle it as a special case.
+                rt = n.sqrt() + 1;
                 
-                int start_a = (srt + p - rt % p) % p;
-                int start_b = (-srt + 2 * p - rt % p) % p;
-                if(start_a % 2) start_a += p; start_a /= 2;
-                if(start_b % 2) start_b += p; start_b /= 2;
-                q.push_back(make_pair(start_a, p));
-                prime_count[start_a]++;
-                if(start_a != start_b) 
+                SEC_PRINTF(3, "cmp get_bits(0)\n");
+                
+                if(n.get_bit(0) != rt.get_bit(0))
                 {
-                    prime_count[start_b]++;
-                    q.push_back(make_pair(start_b, p));
+                    rt++;
+                }
+                
+                SEC_PRINTF(3, "set bigp\n");
+                
+                bigp = f_base.back().first + 1;
+                
+                SEC_PRINTF(3, "set prime_count\n");
+                
+                prime_count = vector<int>(bigp,0);
+            }
+            
+            if (running)
+            {
+                SEC_PRINTF(3, "size: %d\n", f_base.size());
+                for(int i = 1; i < f_base.size(); i++)
+                {
+                    SEC_PRINTF(3, "\ti:%d", i);
+                    if (!running)
+                    {
+                        break;
+                    }
+                    
+                    int p = f_base[i].first;
+                    bigint srt = f_base[i].second;
+                    
+                    int start_a = (srt + p - rt % p) % p;
+                    int start_b = (-srt + 2 * p - rt % p) % p;
+                    if(start_a % 2) start_a += p; start_a /= 2;
+                    if(start_b % 2) start_b += p; start_b /= 2;
+                    q.push_back(make_pair(start_a, p));
+                    prime_count[start_a]++;
+                    if(start_a != start_b)
+                    {
+                        SEC_PRINTF(3, "\t\tNot Eq\n");
+                        prime_count[start_b]++;
+                        q.push_back(make_pair(start_b, p));
+                    }
                 }
             }
-            for(int i = q.size() - 1; i >= 0; i--) 
+            SEC_PRINTF(3, "3: Passed third block\n");
+            
+            if (running)
             {
-                heapify(q, i);
+                for(int i = q.size() - 1; i >= 0; i--)
+                {
+                    if (!running)
+                    {
+                        break;
+                    }
+                    heapify(q, i);
+                }
             }
+            SEC_PRINTF(3, "Exit Section 3\n");
         }
+    }
+    
+    SEC_PRINTF(4, "End of First Section Block\n");
+    
+    if (!running)
+    {
+        return ret;
     }
     
     //MARK:- Quadratic Seive
