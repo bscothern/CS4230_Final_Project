@@ -802,7 +802,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         //MARK: Simple Factoring
         #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
-            vector<bigint> ret;
+            //vector<bigint> ret;
             // Search for small prime factors using trial division.
             int div_bound = TRIVIAL_DIVISION;
             if(n.sqrt() < div_bound) 
@@ -840,7 +840,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         //MARK: Pollard Rho Factoring
         #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
-            vector<bigint> ret;
+            //vector<bigint> ret;
             // Try Pollard's Rho algorithm for a little bit.
             for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
                 bigint c = random(n.bits() + 4) % n;
