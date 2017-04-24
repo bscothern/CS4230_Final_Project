@@ -856,14 +856,15 @@ vector<bigint> bigint::factor(bool verbose) const {
                 }
             }
         }
+
+        vector<int> prime_count(0, 0);
         
         //MARK: Quadratic Seive Setup
-        //#pragma omp section
-        //{
+        #pragma omp section
+        {
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
-            fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))),
-                               sq_root(2) / 4) * 2;
+            fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))), sq_root(2) / 4) * 2;
             
             // Perform the Sieve of Eratosthenes to get a list of small primes to use
             // as the factor base.  This only needs to be done once.  If large primes are
@@ -907,7 +908,7 @@ vector<bigint> bigint::factor(bool verbose) const {
             rt = n.sqrt() + 1;
             if(n.get_bit(0) != rt.get_bit(0)) rt++;
             int bigp = f_base.back().first + 1;
-            vector<int> prime_count(bigp, 0);
+            /*vector<int>*/ prime_count(bigp, 0);
             for(int i = 1; i < f_base.size(); i++) {
                 int p = f_base[i].first;
                 bigint srt = f_base[i].second;
@@ -926,7 +927,7 @@ vector<bigint> bigint::factor(bool verbose) const {
             for(int i = q.size() - 1; i >= 0; i--) {
                 heapify(q, i);
             }
-        //}
+        }
     }
     
     //MARK:- Quadratic Seive
