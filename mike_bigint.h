@@ -794,31 +794,37 @@ vector<bigint> bigint::factor(bool verbose) const {
     int bigp = 0;
 
     //** originally declared around line 834 */
-    vector<bigint> ret;
+    //vector<bigint> ret;
     
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3)
     {
         //MARK: Simple Factoring
-        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
+        #pragma omp section firstprivate(prime_count, bigp) lastprivate(prime_count, bigp)
         {
             vector<bigint> ret;
             // Search for small prime factors using trial division.
             int div_bound = TRIVIAL_DIVISION;
-            if(n.sqrt() < div_bound) {
+            if(n.sqrt() < div_bound) 
+            {
                 div_bound = n.sqrt().to_int();
             }
-            for(int i = 2; i <= div_bound; i++) {
-                while(n % i == 0) {
+            for(int i = 2; i <= div_bound; i++) 
+            {
+                while(n % i == 0) 
+                {
                     n /= i;
                     ret.push_back(i);
                 }
-                if (!running) {
+                if (!running) 
+                {
                     break;
                 }
             }
-            if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) {
-                if(n != 1) {
+            if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) 
+            {
+                if(n != 1) 
+                {
                     ret.push_back(n);
                 }
                 running = 0;
@@ -834,23 +840,26 @@ vector<bigint> bigint::factor(bool verbose) const {
         //MARK: Pollard Rho Factoring
         #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
-            //vector<bigint> ret;
+            vector<bigint> ret;
             // Try Pollard's Rho algorithm for a little bit.
             for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
                 bigint c = random(n.bits() + 4) % n;
                 bigint x = 2;
                 bigint y = 2;
                 bigint g = 1;
-                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) {
+                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) 
+                {
                     x *= x; x += c; x %= n;
                     y *= y; y += c; y %= n;
                     y *= y; y += c; y %= n;
                     g = (x - y).abs().gcd(n);
-                    if (!running) {
+                    if (!running) 
+                    {
                         break;
                     }
                 }
-                if (running && (g != 1 && g != n)) {
+                if (running && (g != 1 && g != n)) 
+                {
                     // Divide and recursively factor each half and merge the lists.
                     vector<bigint> fa = g.factor(verbose);
                     vector<bigint> fb = (n / g).factor(verbose);
