@@ -800,7 +800,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     #pragma omp parallel sections num_threads(3) lastprivate(prime_count, bigp) //firstprivate(prime_count, bigp) 
     {
         //MARK: Simple Factoring
-        #pragma omp section lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
+        #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
             //vector<bigint> ret;
             // Search for small prime factors using trial division.
@@ -1163,7 +1163,9 @@ vector<bigint> bigint::factor(bool verbose) const {
                         vector<bigint> fa = factor.factor(verbose);
                         vector<bigint> fb = (n / factor).factor(verbose);
                         
-                        for(int i = 0; i < fa.size(); i++) {
+                        printf("segfault?");
+                        for(int i = 0; i < fa.size(); i++) 
+                        {
                             ret.push_back(fa[i]);
                         }
 
