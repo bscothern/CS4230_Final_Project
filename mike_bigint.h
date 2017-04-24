@@ -800,7 +800,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     #pragma omp parallel sections num_threads(3)
     {
         //MARK: Simple Factoring
-        #pragma omp section lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
+        #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
             vector<bigint> ret;
             // Search for small prime factors using trial division.
@@ -838,7 +838,7 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
     
         //MARK: Pollard Rho Factoring
-        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
+        #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
             vector<bigint> ret;
             // Try Pollard's Rho algorithm for a little bit.
@@ -877,7 +877,6 @@ vector<bigint> bigint::factor(bool verbose) const {
             }
         }
 
-        
         
         //MARK: Quadratic Seive Setup
         #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
@@ -934,7 +933,9 @@ vector<bigint> bigint::factor(bool verbose) const {
             /*int*/ bigp = f_base.back().first + 1;
             ///*vector<int>*/ prime_count(bigp, 0);
             prime_count = vector<int>(bigp,0);
-            for(int i = 1; i < f_base.size(); i++) {
+            
+            for(int i = 1; i < f_base.size(); i++) 
+            {
                 int p = f_base[i].first;
                 bigint srt = f_base[i].second;
                 
@@ -944,12 +945,14 @@ vector<bigint> bigint::factor(bool verbose) const {
                 if(start_b % 2) start_b += p; start_b /= 2;
                 q.push_back(make_pair(start_a, p));
                 prime_count[start_a]++;
-                if(start_a != start_b) {
+                if(start_a != start_b) 
+                {
                     prime_count[start_b]++;
                     q.push_back(make_pair(start_b, p));
                 }
             }
-            for(int i = q.size() - 1; i >= 0; i--) {
+            for(int i = q.size() - 1; i >= 0; i--) 
+            {
                 heapify(q, i);
             }
         }
