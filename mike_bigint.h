@@ -800,7 +800,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     #pragma omp parallel sections num_threads(3)
     {
         //MARK: Simple Factoring
-        #pragma omp section firstprivate(prime_count, bigp) lastprivate(prime_count, bigp)
+        #pragma omp section lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
             vector<bigint> ret;
             // Search for small prime factors using trial division.
