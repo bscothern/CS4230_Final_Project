@@ -1251,7 +1251,9 @@ vector<bigint> bigint::factor(bool verbose) const {
                         vector<bigint> fa = factor.factor(verbose);
                         vector<bigint> fb = (n / factor).factor(verbose);
                         
-                        for(int i = 0; i < fa.size(); i++) {
+                        cout << "segfault?";
+                        for(int i = 0; i < fa.size(); i++) 
+                        {
                             ret.push_back(fa[i]);
                         }
 
