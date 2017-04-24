@@ -798,7 +798,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     vector<bigint> ret;
     
 #if 1
-#define SECTION_PRINT 3
+#define SECTION_PRINT 0
 #define SEC_PRINTF(sec, ...) do { if (SECTION_PRINT == sec || SECTION_PRINT == -1) printf(__VA_ARGS__); } while(0);
 #else
 #define SEC_PRINTF(sec, ...)
