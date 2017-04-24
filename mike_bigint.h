@@ -858,8 +858,8 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
         
         //MARK: Quadratic Seive Setup
-        #pragma omp section
-        {
+        //#pragma omp section
+        //{
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
             fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))),
@@ -880,15 +880,21 @@ vector<bigint> bigint::factor(bool verbose) const {
             
             // Calculate the factor base.  A factor base consists of primes p such that
             // n has a quadratic residue modulo p.
-            for(int p = 2, f = 0; f < fsz; p++) {
-                if(p < PRIME_SIEVE && !is_prime[p]) {
+            for(int p = 2, f = 0; f < fsz; p++) 
+            {
+                if(p < PRIME_SIEVE && !is_prime[p]) 
+                {
                     continue;
                 }
                 bigint nm = n % p;
-                if(nm.legendre(p) != 1) {
+                
+                if(nm.legendre(p) != 1) 
+                {
                     continue;
                 }
-                if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) {
+                
+                if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) 
+                {
                     continue;
                 }
                 
@@ -920,7 +926,7 @@ vector<bigint> bigint::factor(bool verbose) const {
             for(int i = q.size() - 1; i >= 0; i--) {
                 heapify(q, i);
             }
-        }
+        //}
     }
     
     //MARK:- Quadratic Seive
@@ -940,7 +946,8 @@ vector<bigint> bigint::factor(bool verbose) const {
     set<pair<int, long long> > dlp;
     
     // Keep searching for x^2 - n that factor completely over the factor base.
-    for(long long i = 0; ; i++, rt += 2) {
+    for(long long i = 0; ; i++, rt += 2) 
+    {
         // If there isn't a signle factor here don't even bother.
         if(q[0].first != i) {
             continue;
