@@ -787,6 +787,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     bigint rt;
     vector<pair<long long, int> > q;
 
+    //** this declaration was originally down near line 913 *******
     vector<int> prime_count(0, 0);
     
     //MARK:- Basic Factoring & Setup
@@ -910,7 +911,8 @@ vector<bigint> bigint::factor(bool verbose) const {
             rt = n.sqrt() + 1;
             if(n.get_bit(0) != rt.get_bit(0)) rt++;
             int bigp = f_base.back().first + 1;
-            /*vector<int>*/ prime_count(bigp, 0);
+            ///*vector<int>*/ prime_count(bigp, 0);
+            prime_count = vector<int>(bigp,0);
             for(int i = 1; i < f_base.size(); i++) {
                 int p = f_base[i].first;
                 bigint srt = f_base[i].second;
