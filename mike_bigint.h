@@ -794,7 +794,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     int bigp = 0;
 
     //** originally declared around line 834 */
-    //vector<bigint> ret;
+    vector<bigint> ret;
     
     //MARK:- Basic Factoring & Setup
     #pragma omp parallel sections num_threads(3) lastprivate(prime_count, bigp) //firstprivate(prime_count, bigp) 
