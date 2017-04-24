@@ -797,7 +797,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     //vector<bigint> ret;
     
     //MARK:- Basic Factoring & Setup
-    #pragma omp parallel sections num_threads(3)
+    #pragma omp parallel sections num_threads(3) lastprivate(prime_count, bigp) //firstprivate(prime_count, bigp) 
     {
         //MARK: Simple Factoring
         #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
@@ -879,7 +879,7 @@ vector<bigint> bigint::factor(bool verbose) const {
 
         
         //MARK: Quadratic Seive Setup
-        #pragma omp section firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
+        #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
@@ -978,7 +978,8 @@ vector<bigint> bigint::factor(bool verbose) const {
     for(long long i = 0; ; i++, rt += 2) 
     {
         // If there isn't a signle factor here don't even bother.
-        if(q[0].first != i) {
+        if(q[0].first != i) 
+        {
             continue;
         }
         // Compute Q(x) and try to factor it over the factor base.
@@ -989,16 +990,19 @@ vector<bigint> bigint::factor(bool verbose) const {
         v = v >> div2;
         
         int maxdiv = 0;
-        while(q[0].first == i) {
+        while(q[0].first == i) 
+        {
             // Divide out the largest power of p from v.
             int p = q[0].second;
             
             // This heuristic seems to do pretty well in cutting down
             // checks on v that aren't likely to be smooth.
-            if(prime_count[i % bigp] > 7) {
+            if(prime_count[i % bigp] > 7) 
+            {
                 int div = 1;
                 v /= p;
-                while(v % p == 0) {
+                while(v % p == 0) 
+                {
                     v /= p;
                     div++;
                 }
@@ -1080,9 +1084,11 @@ vector<bigint> bigint::factor(bool verbose) const {
             mat.push_back(make_pair(v_primes, vector<int>(1, field.size() - 1)));
             
             // Cancel columns that are already owned.
-            for(int j = 0; j < v_primes.size(); j++) {
+            for(int j = 0; j < v_primes.size(); j++) 
+            {
                 int k = owner[v_primes[j]];
-                if(k != -1) {
+                if(k != -1) 
+                {
                     mat.back().first = list_xor(mat.back().first, mat[k].first);
                     mat.back().second = list_xor(mat.back().second, mat[k].second);
                 }
@@ -1092,8 +1098,10 @@ vector<bigint> bigint::factor(bool verbose) const {
                 // Assign a column for this row to own.
                 int id = mat.back().first[0];
                 owner[id] = mat.size() - 1;
-                for(int j = 0; j + 1 < mat.size(); j++) {
-                    if(binary_search(mat[j].first.begin(), mat[j].first.end(), id)) {
+                for(int j = 0; j + 1 < mat.size(); j++) 
+                {
+                    if(binary_search(mat[j].first.begin(), mat[j].first.end(), id)) 
+                    {
                         mat[j].first = list_xor(mat.back().first, mat[j].first);
                         mat[j].second = list_xor(mat.back().second, mat[j].second);
                     }
