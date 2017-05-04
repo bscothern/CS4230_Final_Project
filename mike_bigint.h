@@ -162,6 +162,9 @@ public:
     // combination of trial division, Pollard's Rho algorithm and the quadratic
     // sieve.
     vector<bigint> factor(bool verbose = false) const;
+
+    // pollard rho method
+    vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret);
     
 private:
     // Sign bit.  s = true means the integer is negative.
@@ -859,11 +862,16 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
     
         //MARK: Pollard Rho Factoring
-        #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
+        #pragma omp section 
         {
             SEC_PRINTF(2, "Enter Section 2\n");
             
             vector<bigint> local_ret;
+            //bool shouldSet = false;
+
+            // // Try Pollard's Rho algorithm for a little bit.
+            //ret = pollardRho(ret, local_ret);
+
             bool shouldSet = false;
 
             // Try Pollard's Rho algorithm for a little bit.
@@ -905,6 +913,7 @@ vector<bigint> bigint::factor(bool verbose) const {
                     ret = local_ret;
                 }
             }
+
             SEC_PRINTF(2, "Exit Section 2\n");
         }
 
@@ -1280,6 +1289,13 @@ vector<bigint> bigint::factor(bool verbose) const {
     sort(ret.begin(), ret.end());
 	return ret;
 }
+
+// vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
+// {
+    
+
+//     return ret;
+// }
 
 ostream & operator <<(ostream & out, const bigint & x) {
     out << x.to_string();
