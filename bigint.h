@@ -29,7 +29,8 @@
 #include <set>
 #include <queue>
 #include <math.h>
-//#include <omp.h>
+#include <stdio.h>
+#include <omp.h>
 
 using namespace std;
 
@@ -161,6 +162,9 @@ public:
     // combination of trial division, Pollard's Rho algorithm and the quadratic
     // sieve.
     vector<bigint> factor(bool verbose = false) const;
+
+    // pollard rho method
+    vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret);
     
 private:
     // Sign bit.  s = true means the integer is negative.
@@ -786,141 +790,269 @@ vector<bigint> bigint::factor(bool verbose) const {
     vector<pair<int, bigint> > f_base;
     bigint rt;
     vector<pair<long long, int> > q;
+
+    //** this declaration was originally down near line 913 *******
+    vector<int> prime_count(0, 0);
+
+    //** originally declared aroune line 913 */
+    int bigp = 0;
+
+    //** originally declared around line 834 */
     vector<bigint> ret;
     
+#if 0
+#define SECTION_PRINT 0
+#define SEC_PRINTF(sec, ...) do { if (SECTION_PRINT == sec || SECTION_PRINT == -1) printf(__VA_ARGS__); } while(0);
+#else
+#define SEC_PRINTF(sec, ...)
+#endif
+    
     //MARK:- Basic Factoring & Setup
-    #pragma omp parallel sections num_threads(3)
+    #pragma omp parallel sections num_threads(3) lastprivate(prime_count, bigp) //firstprivate(prime_count, bigp) 
     {
         //MARK: Simple Factoring
-        #pragma omp section
+        #pragma omp section //lastprivate(prime_count, bigp) firstprivate(prime_count, bigp) 
         {
+            SEC_PRINTF(1, "Enter Section 1\n");
+
+            vector<bigint> local_ret;
+            bool shouldSet = false;
+
             // Search for small prime factors using trial division.
             int div_bound = TRIVIAL_DIVISION;
-            if(n.sqrt() < div_bound) {
+            if(n.sqrt() < div_bound) 
+            {
                 div_bound = n.sqrt().to_int();
             }
-            for(int i = 2; i <= div_bound; i++) {
-                while(n % i == 0) {
+            for(int i = 2; i <= div_bound; i++) 
+            {
+                while(n % i == 0) 
+                {
                     n /= i;
-                    ret.push_back(i);
+                    local_ret.push_back(i);
                 }
-                if (!running) {
+                if (!running) 
+                {
                     break;
                 }
             }
-            if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) {
-                if(n != 1) {
-                    ret.push_back(n);
-                }
+            if (running && (n == 1 || n <= bigint(div_bound) * div_bound)) 
+            {
+                
                 running = 0;
+                shouldSet = true;
+                if(n != 1) 
+                {
+                    local_ret.push_back(n);
+                }
             }
             
             // Check if we are probably wasting our time.
-            if (running && (n.probably_prime())) {
-                ret.push_back(n);
+            if (running && (n.probably_prime()))
+            {
                 running = 0;
+                shouldSet = true;
+                local_ret.push_back(n);
             }
+            if (shouldSet)
+            {
+                ret = local_ret;
+            }
+            SEC_PRINTF(1, "Exit Section 1\n");
         }
     
         //MARK: Pollard Rho Factoring
-        #pragma omp section
+        #pragma omp section 
         {
-            vector<bigint> ret;
+            SEC_PRINTF(2, "Enter Section 2\n");
+            
+            vector<bigint> local_ret;
+            //bool shouldSet = false;
+
+            // // Try Pollard's Rho algorithm for a little bit.
+            //ret = pollardRho(ret, local_ret);
+
+            bool shouldSet = false;
+
             // Try Pollard's Rho algorithm for a little bit.
             for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
                 bigint c = random(n.bits() + 4) % n;
                 bigint x = 2;
                 bigint y = 2;
                 bigint g = 1;
-                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) {
+                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) 
+                {
                     x *= x; x += c; x %= n;
                     y *= y; y += c; y %= n;
                     y *= y; y += c; y %= n;
                     g = (x - y).abs().gcd(n);
-                    if (!running) {
+                    if (!running) 
+                    {
                         break;
                     }
                 }
-                if (running && (g != 1 && g != n)) {
+                if (running && (g != 1 && g != n)) 
+                {
+                    running = 0;
+                    shouldSet = true;
                     // Divide and recursively factor each half and merge the lists.
                     vector<bigint> fa = g.factor(verbose);
                     vector<bigint> fb = (n / g).factor(verbose);
-                    for(int i = 0; i < fa.size(); i++) {
-                        ret.push_back(fa[i]);
+                    for(int i = 0; i < fa.size(); i++) 
+                    {
+                        local_ret.push_back(fa[i]);
                     }
-                    for(int i = 0; i < fb.size(); i++) {
-                        ret.push_back(fb[i]);
+                    for(int i = 0; i < fb.size(); i++) 
+                    {
+                        local_ret.push_back(fb[i]);
                     }
-                    sort(ret.begin(), ret.end());
-                    running = 0;
+                    sort(local_ret.begin(), local_ret.end());
+                }
+                if (shouldSet)
+                {
+                    ret = local_ret;
                 }
             }
+
+            SEC_PRINTF(2, "Exit Section 2\n");
         }
+
         
         //MARK: Quadratic Seive Setup
-        #pragma omp section
+        #pragma omp section //firstprivate(prime_count, bigp, ret) lastprivate(prime_count, bigp, ret)
         {
+            SEC_PRINTF(3, "Enter Section 3\n");
+            
             // Calculate how large the factor base should be.  This formula comes from
             // the paper found at http://www.math.uiuc.edu/~landquis/quadsieve.pdf .
-            fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))),
-                               sq_root(2) / 4) * 2;
+            fsz = (int)pow(exp(sq_root(n.bits() * log(2) * log(n.bits() * log(2)))), sq_root(2) / 4) * 2;
             
             // Perform the Sieve of Eratosthenes to get a list of small primes to use
             // as the factor base.  This only needs to be done once.  If large primes are
             // required the probably_prime method will be used instead.
             static vector<bool> is_prime;
-            if(is_prime.empty()) {
+            if(is_prime.empty()) 
+            {
                 is_prime = vector<bool>(PRIME_SIEVE, true);
-                for(int i = 2; i * i < PRIME_SIEVE; i++) {
-                    for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) {
+                for(int i = 2; i * i < PRIME_SIEVE; i++) 
+                {
+                    for(int j = i * i; is_prime[i] && j < PRIME_SIEVE; j += i) 
+                    {
                         is_prime[j] = false;
                     }
                 }
             }
             
-            // Calculate the factor base.  A factor base consists of primes p such that
-            // n has a quadratic residue modulo p.
-            for(int p = 2, f = 0; f < fsz; p++) {
-                if(p < PRIME_SIEVE && !is_prime[p]) {
-                    continue;
+            
+            SEC_PRINTF(3, "3: Passed first block\n");
+            
+            if (running)
+            {
+                // Calculate the factor base.  A factor base consists of primes p such that
+                // n has a quadratic residue modulo p.
+                for(int p = 2, f = 0; f < fsz; p++)
+                {
+                    if (!running)
+                    {
+                        break;
+                    }
+
+                    if(p < PRIME_SIEVE && !is_prime[p])
+                    {
+                        continue;
+                    }
+                    
+                    bigint nm = n % p;
+                    
+                    if(nm.legendre(p) != 1)
+                    {
+                        continue;
+                    }
+                    
+                    if(p >= PRIME_SIEVE && !bigint(p).probably_prime())
+                    {
+                        continue;
+                    }
+                    SEC_PRINTF(3, "Pushing back of f_base\n");
+                    f_base.push_back(make_pair(p, nm.mod_square_root(p)));
+                    f++;
                 }
-                bigint nm = n % p;
-                if(nm.legendre(p) != 1) {
-                    continue;
-                }
-                if(p >= PRIME_SIEVE && !bigint(p).probably_prime()) {
-                    continue;
+            }
+            
+            SEC_PRINTF(3, "3: Passed second block\n");
+            
+            if (running)
+            {
+                // Initialize the rolling queue of known prime factors starting at rt.
+                // Don't include 2 and handle it as a special case.
+                rt = n.sqrt() + 1;
+                
+                SEC_PRINTF(3, "cmp get_bits(0)\n");
+                
+                if(n.get_bit(0) != rt.get_bit(0))
+                {
+                    rt++;
                 }
                 
-                f_base.push_back(make_pair(p, nm.mod_square_root(p)));
-                f++;
+                SEC_PRINTF(3, "set bigp\n");
+                
+                bigp = f_base.back().first + 1;
+                
+                SEC_PRINTF(3, "set prime_count\n");
+                
+                prime_count = vector<int>(bigp,0);
             }
+            
+            if (running)
+            {
+                SEC_PRINTF(3, "size: %d\n", f_base.size());
+                for(int i = 1; i < f_base.size(); i++)
+                {
+                    SEC_PRINTF(3, "\ti:%d", i);
+                    if (!running)
+                    {
+                        break;
+                    }
+                    
+                    int p = f_base[i].first;
+                    bigint srt = f_base[i].second;
+                    
+                    int start_a = (srt + p - rt % p) % p;
+                    int start_b = (-srt + 2 * p - rt % p) % p;
+                    if(start_a % 2) start_a += p; start_a /= 2;
+                    if(start_b % 2) start_b += p; start_b /= 2;
+                    q.push_back(make_pair(start_a, p));
+                    prime_count[start_a]++;
+                    if(start_a != start_b)
+                    {
+                        SEC_PRINTF(3, "\t\tNot Eq\n");
+                        prime_count[start_b]++;
+                        q.push_back(make_pair(start_b, p));
+                    }
+                }
+            }
+            SEC_PRINTF(3, "3: Passed third block\n");
+            
+            if (running)
+            {
+                for(int i = q.size() - 1; i >= 0; i--)
+                {
+                    if (!running)
+                    {
+                        break;
+                    }
+                    heapify(q, i);
+                }
+            }
+            SEC_PRINTF(3, "Exit Section 3\n");
         }
     }
     
-    // Initialize the rolling queue of known prime factors starting at rt.
-    // Don't include 2 and handle it as a special case.
-    rt = n.sqrt() + 1;
-    if(n.get_bit(0) != rt.get_bit(0)) rt++;
-    int bigp = f_base.back().first + 1;
-    vector<int> prime_count(bigp, 0);
-    for(int i = 1; i < f_base.size(); i++) {
-        int p = f_base[i].first;
-        bigint srt = f_base[i].second;
-        
-        int start_a = (srt + p - rt % p) % p;
-        int start_b = (-srt + 2 * p - rt % p) % p;
-        if(start_a % 2) start_a += p; start_a /= 2;
-        if(start_b % 2) start_b += p; start_b /= 2;
-        q.push_back(make_pair(start_a, p));
-        prime_count[start_a]++;
-        if(start_a != start_b) {
-            prime_count[start_b]++;
-            q.push_back(make_pair(start_b, p));
-        }
-    }
-    for(int i = q.size() - 1; i >= 0; i--) {
-        heapify(q, i);
+    SEC_PRINTF(4, "End of First Section Block\n");
+    
+    if (!running)
+    {
+        return ret;
     }
     
     //MARK:- Quadratic Seive
@@ -940,9 +1072,11 @@ vector<bigint> bigint::factor(bool verbose) const {
     set<pair<int, long long> > dlp;
     
     // Keep searching for x^2 - n that factor completely over the factor base.
-    for(long long i = 0; ; i++, rt += 2) {
+    for(long long i = 0; ; i++, rt += 2) 
+    {
         // If there isn't a signle factor here don't even bother.
-        if(q[0].first != i) {
+        if(q[0].first != i) 
+        {
             continue;
         }
         // Compute Q(x) and try to factor it over the factor base.
@@ -953,16 +1087,19 @@ vector<bigint> bigint::factor(bool verbose) const {
         v = v >> div2;
         
         int maxdiv = 0;
-        while(q[0].first == i) {
+        while(q[0].first == i) 
+        {
             // Divide out the largest power of p from v.
             int p = q[0].second;
             
             // This heuristic seems to do pretty well in cutting down
             // checks on v that aren't likely to be smooth.
-            if(prime_count[i % bigp] > 7) {
+            if(prime_count[i % bigp] > 7) 
+            {
                 int div = 1;
                 v /= p;
-                while(v % p == 0) {
+                while(v % p == 0) 
+                {
                     v /= p;
                     div++;
                 }
@@ -977,60 +1114,68 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
         
         bool added = false;
-        if(v <= 0x7FFFFFFF) {
+        if(v <= 0x7FFFFFFF) 
+        {
             int iv = v.to_int();
-            if(iv != 1) {
-                if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv) {
+            if(iv != 1) 
+            {
+                if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv) 
+                {
                     typeof(dlp.begin()) it = dlp.lower_bound(make_pair(iv, 0));
-                    if(it != dlp.end() && it->first == iv) {
+                    if(it != dlp.end() && it->first == iv) 
+                    {
                         // We found two factors with the same large prime!
-                        if(verbose) {
-                            cout << "Found double prime " << iv << endl;
-                        }
                         added = true;
                         bigint ort = rt - 2 * (i - it->second);
                         field.push_back(make_pair(rt * ort, (rt * rt - n) * (ort * ort - n)));
                         f_base.push_back(make_pair(iv, -1));
                         dlp.erase(it);
-                    } else {
+                    } 
+                    else 
+                    {
                         dlp.insert(make_pair(iv, i));
-                        if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE) {
+                        if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE) 
+                        {
                             dlp.erase(--dlp.end());
                         }
                     }
                 }
-            } else if(iv == 1) {
+            }
+            else if(iv == 1) 
+            {
                 // Lucky day, v factored completely over the factor base.
                 added = true;
                 field.push_back(make_pair(rt, rt * rt - n));
             }
         }
         
-        if(added) {
-            if(verbose) {
-                cout << i << ": " << field.size() << " of " << fsz + 1 << " with "
-                << prime_count[i % bigp] << " primes and maxdiv " << maxdiv << endl;
-            }
-            
+        if(added) 
+        {
             // Create a row for this solution.
             vector<int> v_primes;
             bigint v = field.back().second;
-            for(int j = 0; j < fsz; j++) {
+            for(int j = 0; j < fsz; j++) 
+            {
                 int cnt = 0;
-                while(v % f_base[j].first == 0) {
+                while(v % f_base[j].first == 0) 
+                {
                     v /= f_base[j].first;
                     cnt++;
                 }
-                if(cnt % 2) {
+
+                if(cnt % 2) 
+                {
                     v_primes.push_back(j);
                 }
             }
             mat.push_back(make_pair(v_primes, vector<int>(1, field.size() - 1)));
             
             // Cancel columns that are already owned.
-            for(int j = 0; j < v_primes.size(); j++) {
+            for(int j = 0; j < v_primes.size(); j++) 
+            {
                 int k = owner[v_primes[j]];
-                if(k != -1) {
+                if(k != -1) 
+                {
                     mat.back().first = list_xor(mat.back().first, mat[k].first);
                     mat.back().second = list_xor(mat.back().second, mat[k].second);
                 }
@@ -1040,58 +1185,62 @@ vector<bigint> bigint::factor(bool verbose) const {
                 // Assign a column for this row to own.
                 int id = mat.back().first[0];
                 owner[id] = mat.size() - 1;
-                for(int j = 0; j + 1 < mat.size(); j++) {
-                    if(binary_search(mat[j].first.begin(), mat[j].first.end(), id)) {
+                for(int j = 0; j + 1 < mat.size(); j++) 
+                {
+                    if(binary_search(mat[j].first.begin(), mat[j].first.end(), id)) 
+                    {
                         mat[j].first = list_xor(mat.back().first, mat[j].first);
                         mat[j].second = list_xor(mat.back().second, mat[j].second);
                     }
                 }
-            } else {
-                // We have a linear dependence! Hoorahh!
-                if(verbose) {
-                    cout << "Linear dependence detected" << endl;
-                }
-                
+            } 
+            else 
+            {
                 // Calculate a and b such that a^2 = b^2 mod n.
                 bigint a = 1;
                 bigint b = 1;
                 vector<int> & v = mat.back().second;
                 vector<bool> parity(fsz, false);
-                for(int k = 0; k < v.size(); k++) {
+                for(int k = 0; k < v.size(); k++) 
+                {
                     a *= field[v[k]].first; a %= n;
                     bigint val = field[v[k]].second;
-                    for(int s = 0; s < f_base.size(); s++) {
-                        while(val % f_base[s].first == 0) {
+                    for(int s = 0; s < f_base.size(); s++) 
+                    {
+                        while(val % f_base[s].first == 0) 
+                        {
                             val /= f_base[s].first;
                             parity[s] = !parity[s];
-                            if(!parity[s]) {
+                            if(!parity[s]) 
+                            {
                                 b *= f_base[s].first; b %= n;
                             }
                         }
                     }
                 }
-                if(a < b) {
+                if(a < b) 
+                {
                     a.swap(b);
                 }
                 
-                if(a * a % n != b * b % n) {
+                if(a * a % n != b * b % n) 
+                {
                     cout << "Computation error: squares not congruent" << endl;
                 }
                 
                 // We now have (a + b)(a - b) = n.  Calculate gcd(a + b, n) and
                 // gcd(a - b, n) to try to find non trivial factor.  This usually works.
-                for(bigint f = a - b; f <= a + b; f += b << 1) {
+                for(bigint f = a - b; f <= a + b; f += b << 1) 
+                {
                     bigint factor = f.gcd(n);
-                    if(factor != 1 && factor != n) {
-                        if(verbose) {
-                            cout << "Non-trivial factor calculated: " << factor << endl;
-                        }
-                        
+                    if(factor != 1 && factor != n) 
+                    {
                         // Divide and recursively factor each half and merge the lists.
                         vector<bigint> fa = factor.factor(verbose);
                         vector<bigint> fb = (n / factor).factor(verbose);
-                        
-                        for(int i = 0; i < fa.size(); i++) {
+
+                        for(int i = 0; i < fa.size(); i++) 
+                        {
                             ret.push_back(fa[i]);
                         }
 
@@ -1099,7 +1248,7 @@ vector<bigint> bigint::factor(bool verbose) const {
                             ret.push_back(fb[i]);
                         }
 
-                        sort(ret.begin(), ret.end());
+//                        sort(ret.begin(), ret.end());
                         return ret;
                     }
                 }
@@ -1111,6 +1260,13 @@ vector<bigint> bigint::factor(bool verbose) const {
     
     return vector<bigint>();
 }
+
+// vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
+// {
+    
+
+//     return ret;
+// }
 
 ostream & operator <<(ostream & out, const bigint & x) {
     out << x.to_string();

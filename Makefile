@@ -1,21 +1,22 @@
 NAME := factor
 CC := g++
-CPPFLAGS := -g -pg -fprofile-arcs -ftest-coverage #-O3
+#CPPFLAGS := -g -pg file-arcs -ftest-coverage	# Test Flags
+CPPFLAGS := -O3
 SRC_par := factor.cpp
 SRC_seq := factor_seq.cpp
-SRC_mike := mike_factor.cpp
+SRC_broken := factor_broken.cpp
 FLAGS_par := -fopenmp
 
-all: seq par mike
+all: seq par broken
 
 par:
 	$(CC) $(CPPFLAGS) $(FLAGS_par) $(SRC_par) -o $(NAME)_par
 
-mike:
-	$(CC) $(CPPFLAGS) $(FLAGS_par) $(SRC_mike) -o $(NAME)_mike
+broken:
+	$(CC) $(CPPFLAGS) $(FLAGS_par) $(SRC_broken) -o $(NAME)_broken
 
 seq:
 	$(CC) $(CPPFLAGS) $(SRC_seq) -o $(NAME)_seq
 
 clean:
-	rm -f $(NAME)_par $(NAME)_seq $(NAME)_mike
+	rm -f $(NAME)_par $(NAME)_seq $(NAME)_broken
