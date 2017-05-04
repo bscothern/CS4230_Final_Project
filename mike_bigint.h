@@ -162,6 +162,9 @@ public:
     // combination of trial division, Pollard's Rho algorithm and the quadratic
     // sieve.
     vector<bigint> factor(bool verbose = false) const;
+
+    // pollard rho method
+    vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
     
 private:
     // Sign bit.  s = true means the integer is negative.
