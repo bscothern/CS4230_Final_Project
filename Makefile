@@ -1,10 +1,6 @@
 NAME := factor
 CC := g++
-<<<<<<< HEAD
-CPPFLAGS := -O3
-=======
 CPPFLAGS := -g -pg #-O3
->>>>>>> c346a9c24f421a118017d4616a658fef56dc2100
 SRC_par := factor.cpp
 SRC_seq := factor_seq.cpp
 SRC_mike := mike_factor.cpp
