@@ -1062,194 +1062,225 @@ vector<bigint> bigint::factor(bool verbose) const {
     // set for tracking double large primes.
     set<pair<int, long long> > dlp;
     
-    // Keep searching for x^2 - n that factor completely over the factor base.
-    for(long long i = 0; ; i++, rt += 2) 
-    {
-        // If there isn't a signle factor here don't even bother.
-        if(q[0].first != i) 
-        {
-            continue;
-        }
-        // Compute Q(x) and try to factor it over the factor base.
-        bigint v = rt * rt - n;
+    
+#define ITER_COUNT 1000000
+    bool should_break = false;
+    long long i_step = 0;
+    bigint rt_step = rt;
+    bigint shared_a = 0;
+    bigint shared_b = 0;
+    
+    omp_set_num_threads(4);
+    
+    while (!should_break) {
+		printf("loop:%lld\n", i_step);
+		long long i = 0;
         
-        int div2;
-        for(div2 = 1; !v.get_bit(div2); div2++);
-        v = v >> div2;
-        
-        int maxdiv = 0;
-        while(q[0].first == i) 
+        // Keep searching for x^2 - n that factor completely over the factor base.
+        #pragma omp for private(i, rt)
+        for(i = i_step; i < ITER_COUNT; i++)
         {
-            // Divide out the largest power of p from v.
-            int p = q[0].second;
-            
-            // This heuristic seems to do pretty well in cutting down
-            // checks on v that aren't likely to be smooth.
-            if(prime_count[i % bigp] > 7) 
-            {
-                int div = 1;
-                v /= p;
-                while(v % p == 0) 
-                {
-                    v /= p;
-                    div++;
-                }
-                maxdiv = max(maxdiv, div);
+            if (should_break) {
+                continue;
             }
-            
-            // Erase the prime from the queue and put it back in the queue p positions
-            // later.
-            prime_count[(i + p) % bigp]++;
-            q[0].first += p;
-            heapify(q, 0);
-        }
-        
-        bool added = false;
-        if(v <= 0x7FFFFFFF) 
-        {
-            int iv = v.to_int();
-            if(iv != 1) 
-            {
-                if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv) 
-                {
-                    typeof(dlp.begin()) it = dlp.lower_bound(make_pair(iv, 0));
-                    if(it != dlp.end() && it->first == iv) 
-                    {
-                        // We found two factors with the same large prime!
-                        added = true;
-                        bigint ort = rt - 2 * (i - it->second);
-                        field.push_back(make_pair(rt * ort, (rt * rt - n) * (ort * ort - n)));
-                        f_base.push_back(make_pair(iv, -1));
-                        dlp.erase(it);
-                    } 
-                    else 
-                    {
-                        dlp.insert(make_pair(iv, i));
-                        if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE) 
-                        {
-                            dlp.erase(--dlp.end());
-                        }
-                    }
-                }
-            }
-            else if(iv == 1) 
-            {
-                // Lucky day, v factored completely over the factor base.
-                added = true;
-                field.push_back(make_pair(rt, rt * rt - n));
-            }
-        }
-        
-        if(added) 
-        {
-            // Create a row for this solution.
-            vector<int> v_primes;
-            bigint v = field.back().second;
-            for(int j = 0; j < fsz; j++) 
-            {
-                int cnt = 0;
-                while(v % f_base[j].first == 0) 
-                {
-                    v /= f_base[j].first;
-                    cnt++;
-                }
 
-                if(cnt % 2) 
-                {
-                    v_primes.push_back(j);
-                }
-            }
-            mat.push_back(make_pair(v_primes, vector<int>(1, field.size() - 1)));
-            
-            // Cancel columns that are already owned.
-            for(int j = 0; j < v_primes.size(); j++) 
+            rt = rt_step + (2 * i);
+
+            // If there isn't a signle factor here don't even bother.
+            if(q[0].first != i)
             {
-                int k = owner[v_primes[j]];
-                if(k != -1) 
-                {
-                    mat.back().first = list_xor(mat.back().first, mat[k].first);
-                    mat.back().second = list_xor(mat.back().second, mat[k].second);
-                }
+				rt += 2;
+                continue;
             }
+            // Compute Q(x) and try to factor it over the factor base.
+            bigint v = rt * rt - n;
             
-            if(!mat.back().first.empty()) {
-                // Assign a column for this row to own.
-                int id = mat.back().first[0];
-                owner[id] = mat.size() - 1;
-                for(int j = 0; j + 1 < mat.size(); j++) 
+            int div2;
+            for(div2 = 1; !v.get_bit(div2); div2++);
+            v = v >> div2;
+            
+            int maxdiv = 0;
+            while(q[0].first == i)
+            {
+                // Divide out the largest power of p from v.
+                int p = q[0].second;
+                
+                // This heuristic seems to do pretty well in cutting down
+                // checks on v that aren't likely to be smooth.
+                if(prime_count[i % bigp] > 7)
                 {
-                    if(binary_search(mat[j].first.begin(), mat[j].first.end(), id)) 
+                    int div = 1;
+                    v /= p;
+                    while(v % p == 0)
                     {
-                        mat[j].first = list_xor(mat.back().first, mat[j].first);
-                        mat[j].second = list_xor(mat.back().second, mat[j].second);
+                        v /= p;
+                        div++;
                     }
+                    maxdiv = max(maxdiv, div);
                 }
-            } 
-            else 
+                
+                // Erase the prime from the queue and put it back in the queue p positions
+                // later.
+                prime_count[(i + p) % bigp]++;
+                q[0].first += p;
+                heapify(q, 0);
+            }
+            
+            bool added = false;
+            if(v <= 0x7FFFFFFF)
             {
-                // Calculate a and b such that a^2 = b^2 mod n.
-                bigint a = 1;
-                bigint b = 1;
-                vector<int> & v = mat.back().second;
-                vector<bool> parity(fsz, false);
-                for(int k = 0; k < v.size(); k++) 
+                int iv = v.to_int();
+                if(iv != 1)
                 {
-                    a *= field[v[k]].first; a %= n;
-                    bigint val = field[v[k]].second;
-                    for(int s = 0; s < f_base.size(); s++) 
+                    if(dlp.size() < DOUBLE_LARGE_PRIME_SET_SIZE || dlp.rbegin()->first < iv)
                     {
-                        while(val % f_base[s].first == 0) 
+                        typeof(dlp.begin()) it = dlp.lower_bound(make_pair(iv, 0));
+                        if(it != dlp.end() && it->first == iv)
                         {
-                            val /= f_base[s].first;
-                            parity[s] = !parity[s];
-                            if(!parity[s]) 
+                            // We found two factors with the same large prime!
+                            added = true;
+                            bigint ort = rt - 2 * (i - it->second);
+                            field.push_back(make_pair(rt * ort, (rt * rt - n) * (ort * ort - n)));
+                            f_base.push_back(make_pair(iv, -1));
+                            dlp.erase(it);
+                        }
+                        else
+                        {
+                            dlp.insert(make_pair(iv, i));
+                            if(dlp.size() > DOUBLE_LARGE_PRIME_SET_SIZE)
                             {
-                                b *= f_base[s].first; b %= n;
+                                dlp.erase(--dlp.end());
                             }
                         }
                     }
                 }
-                if(a < b) 
+                else if(iv == 1)
                 {
-                    a.swap(b);
+                    // Lucky day, v factored completely over the factor base.
+                    added = true;
+                    field.push_back(make_pair(rt, rt * rt - n));
                 }
-                
-                if(a * a % n != b * b % n) 
+            }
+            
+            if(added)
+            {
+                // Create a row for this solution.
+                vector<int> v_primes;
+                bigint v = field.back().second;
+                for(int j = 0; j < fsz; j++)
                 {
-                    cout << "Computation error: squares not congruent" << endl;
-                }
-                
-                // We now have (a + b)(a - b) = n.  Calculate gcd(a + b, n) and
-                // gcd(a - b, n) to try to find non trivial factor.  This usually works.
-                for(bigint f = a - b; f <= a + b; f += b << 1) 
-                {
-                    bigint factor = f.gcd(n);
-                    if(factor != 1 && factor != n) 
+                    int cnt = 0;
+                    while(v % f_base[j].first == 0)
                     {
-                        // Divide and recursively factor each half and merge the lists.
-                        vector<bigint> fa = factor.factor(verbose);
-                        vector<bigint> fb = (n / factor).factor(verbose);
-
-                        for(int i = 0; i < fa.size(); i++) 
+                        v /= f_base[j].first;
+                        cnt++;
+                    }
+                    
+                    if(cnt % 2)
+                    {
+                        v_primes.push_back(j);
+                    }
+                }
+                mat.push_back(make_pair(v_primes, vector<int>(1, field.size() - 1)));
+                
+                // Cancel columns that are already owned.
+                for(int j = 0; j < v_primes.size(); j++)
+                {
+                    int k = owner[v_primes[j]];
+                    if(k != -1)
+                    {
+                        mat.back().first = list_xor(mat.back().first, mat[k].first);
+                        mat.back().second = list_xor(mat.back().second, mat[k].second);
+                    }
+                }
+                
+                if(!mat.back().first.empty()) {
+                    // Assign a column for this row to own.
+                    int id = mat.back().first[0];
+                    owner[id] = mat.size() - 1;
+                    for(int j = 0; j + 1 < mat.size(); j++)
+                    {
+                        if(binary_search(mat[j].first.begin(), mat[j].first.end(), id))
                         {
-                            ret.push_back(fa[i]);
+                            mat[j].first = list_xor(mat.back().first, mat[j].first);
+                            mat[j].second = list_xor(mat.back().second, mat[j].second);
                         }
-
-                        for(int i = 0; i < fb.size(); i++) {
-                            ret.push_back(fb[i]);
+                    }
+                }
+                else
+                {
+                    if (!should_break && (should_break = true)) {
+                        // Calculate a and b such that a^2 = b^2 mod n.
+                        bigint a = 1;
+                        bigint b = 1;
+                        vector<int> & v = mat.back().second;
+                        vector<bool> parity(fsz, false);
+                        for(int k = 0; k < v.size(); k++)
+                        {
+                            a *= field[v[k]].first; a %= n;
+                            bigint val = field[v[k]].second;
+                            for(int s = 0; s < f_base.size(); s++)
+                            {
+                                while(val % f_base[s].first == 0)
+                                {
+                                    val /= f_base[s].first;
+                                    parity[s] = !parity[s];
+                                    if(!parity[s])
+                                    {
+                                        b *= f_base[s].first; b %= n;
+                                    }
+                                }
+                            }
                         }
-
-//                        sort(ret.begin(), ret.end());
-                        return ret;
+                        if(a < b)
+                        {
+                            a.swap(b);
+                        }
+                        
+                        if(a * a % n != b * b % n)
+                        {
+                            cout << "Computation error: squares not congruent" << endl;
+                        }
+                        shared_a = a;
+                        shared_b = b;
                     }
                 }
             }
+            
+            prime_count[i % bigp] = 0;
+			rt += 2;
         }
         
-        prime_count[i % bigp] = 0;
+        i_step += ITER_COUNT;
+        rt_step += (2 * ITER_COUNT);
     }
     
-    return vector<bigint>();
+    // We now have (a + b)(a - b) = n.  Calculate gcd(a + b, n) and
+    // gcd(a - b, n) to try to find non trivial factor.  This usually works.
+    for(bigint f = shared_a - shared_b; f <= shared_a + shared_b; f += shared_b << 1)
+    {
+        bigint factor = f.gcd(n);
+        if(factor != 1 && factor != n)
+        {
+            should_break = true;
+            // Divide and recursively factor each half and merge the lists.
+            vector<bigint> fa = factor.factor(verbose);
+            vector<bigint> fb = (n / factor).factor(verbose);
+            
+            for(int i = 0; i < fa.size(); i++)
+            {
+                ret.push_back(fa[i]);
+            }
+            
+            for(int i = 0; i < fb.size(); i++) {
+                ret.push_back(fb[i]);
+            }
+        }
+    }
+    
+	printf("I ran!\n");
+    sort(ret.begin(), ret.end());
+	return ret;
 }
 
 ostream & operator <<(ostream & out, const bigint & x) {
