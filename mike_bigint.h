@@ -1069,12 +1069,11 @@ vector<bigint> bigint::factor(bool verbose) const {
     bigint rt_step = rt;
     bigint shared_a = 0;
     bigint shared_b = 0;
+    long long i = 0;
     
     omp_set_num_threads(4);
     
     while (!should_break) {
-		printf("loop:%lld\n", i_step);
-		long long i = 0;
         
         // Keep searching for x^2 - n that factor completely over the factor base.
         #pragma omp for private(i, rt)
@@ -1278,7 +1277,6 @@ vector<bigint> bigint::factor(bool verbose) const {
         }
     }
     
-	printf("I ran!\n");
     sort(ret.begin(), ret.end());
 	return ret;
 }
