@@ -1,1 +1,24 @@
+Mike Fleming
+Braden Scothern
+
+
 Our project source is originally from: http://www-personal.umich.edu/~msgsss/factor/qs_rep.pdf
+
+
+Compilation:
+	You can use run make to compile all 3 versions of our program.
+
+	factor_seq		- is the sequential and original version of the program.
+	factor_par		- is the parallel version that we got working.
+	factor_broken	- is the far more parallel implementation that we worked on but we never got working properly.
+
+
+General Usage
+	./<program> [OPTIONS] [NUMBER]
+
+
+Program Arguments:
+	-r <b>		Factor a random number with b bits. [NUMBER] will be ignored if given.
+	-R <b>		Factor a random semiprime with b bits. [Number] will be ignored if given.
+	-v			give verbose output
+	-t			output timing information
