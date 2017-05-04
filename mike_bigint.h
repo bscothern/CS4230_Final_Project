@@ -164,7 +164,7 @@ public:
     vector<bigint> factor(bool verbose = false) const;
 
     // pollard rho method
-    vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
+    vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret);
     
 private:
     // Sign bit.  s = true means the integer is negative.
@@ -870,7 +870,49 @@ vector<bigint> bigint::factor(bool verbose) const {
             //bool shouldSet = false;
 
             // // Try Pollard's Rho algorithm for a little bit.
-            ret = pollardRho(ret, local_ret);
+            //ret = pollardRho(ret, local_ret);
+
+            bool shouldSet = false;
+
+            // Try Pollard's Rho algorithm for a little bit.
+            for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
+                bigint c = random(n.bits() + 4) % n;
+                bigint x = 2;
+                bigint y = 2;
+                bigint g = 1;
+                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) 
+                {
+                    x *= x; x += c; x %= n;
+                    y *= y; y += c; y %= n;
+                    y *= y; y += c; y %= n;
+                    g = (x - y).abs().gcd(n);
+                    if (!running) 
+                    {
+                        break;
+                    }
+                }
+                if (running && (g != 1 && g != n)) 
+                {
+                    running = 0;
+                    shouldSet = true;
+                    // Divide and recursively factor each half and merge the lists.
+                    vector<bigint> fa = g.factor(verbose);
+                    vector<bigint> fb = (n / g).factor(verbose);
+                    for(int i = 0; i < fa.size(); i++) 
+                    {
+                        local_ret.push_back(fa[i]);
+                    }
+                    for(int i = 0; i < fb.size(); i++) 
+                    {
+                        local_ret.push_back(fb[i]);
+                    }
+                    sort(local_ret.begin(), local_ret.end());
+                }
+                if (shouldSet)
+                {
+                    ret = local_ret;
+                }
+            }
 
             SEC_PRINTF(2, "Exit Section 2\n");
         }
@@ -1219,52 +1261,12 @@ vector<bigint> bigint::factor(bool verbose) const {
     return vector<bigint>();
 }
 
-vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
-{
-    bool shouldSet = false;
+// vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
+// {
+    
 
-    // Try Pollard's Rho algorithm for a little bit.
-    for(int iter = 0; iter < POLLARD_RHO_ITERATIONS; iter += POLLARD_RHO_ITERATIONS / 100) {
-                bigint c = random(n.bits() + 4) % n;
-                bigint x = 2;
-                bigint y = 2;
-                bigint g = 1;
-                for( ; iter < POLLARD_RHO_ITERATIONS && g == 1; iter++) 
-                {
-                    x *= x; x += c; x %= n;
-                    y *= y; y += c; y %= n;
-                    y *= y; y += c; y %= n;
-                    g = (x - y).abs().gcd(n);
-                    if (!running) 
-                    {
-                        break;
-                    }
-                }
-                if (running && (g != 1 && g != n)) 
-                {
-                    running = 0;
-                    shouldSet = true;
-                    // Divide and recursively factor each half and merge the lists.
-                    vector<bigint> fa = g.factor(verbose);
-                    vector<bigint> fb = (n / g).factor(verbose);
-                    for(int i = 0; i < fa.size(); i++) 
-                    {
-                        local_ret.push_back(fa[i]);
-                    }
-                    for(int i = 0; i < fb.size(); i++) 
-                    {
-                        local_ret.push_back(fb[i]);
-                    }
-                    sort(local_ret.begin(), local_ret.end());
-                }
-                if (shouldSet)
-                {
-                    ret = local_ret;
-                }
-            }
-
-    return ret;
-}
+//     return ret;
+// }
 
 ostream & operator <<(ostream & out, const bigint & x) {
     out << x.to_string();
