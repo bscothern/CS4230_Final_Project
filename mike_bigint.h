@@ -797,7 +797,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     //** originally declared around line 834 */
     vector<bigint> ret;
     
-#if 1
+#if 0
 #define SECTION_PRINT 0
 #define SEC_PRINTF(sec, ...) do { if (SECTION_PRINT == sec || SECTION_PRINT == -1) printf(__VA_ARGS__); } while(0);
 #else
@@ -1227,20 +1227,8 @@ vector<bigint> bigint::factor(bool verbose) const {
                     if(factor != 1 && factor != n) 
                     {
                         // Divide and recursively factor each half and merge the lists.
-                        vector<bigint> fa;
-                        vector<bigint> fb;
-                        
-                        #pragma omp parallel sections num_threads(3)
-                        {
-                            #pragma omp section
-                            {
-                                fa =  = factor.factor(verbose);
-                            }
-                            #pragma omp section
-                            {
-                                fb = (n / factor).factor(verbose);
-                            }
-                        }
+                        vector<bigint> fa = factor.factor(verbose);
+                        vector<bigint> fb = (n / factor).factor(verbose);
 
                         for(int i = 0; i < fa.size(); i++) 
                         {
@@ -1251,7 +1239,7 @@ vector<bigint> bigint::factor(bool verbose) const {
                             ret.push_back(fb[i]);
                         }
 
-                        sort(ret.begin(), ret.end());
+//                        sort(ret.begin(), ret.end());
                         return ret;
                     }
                 }
