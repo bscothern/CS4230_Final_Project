@@ -1216,7 +1216,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     return vector<bigint>();
 }
 
-vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret);
+vector<bigint> pollardRho(vector<bigint> ret, vector<bigint> local_ret)
 {
     bool shouldSet = false;
 
