@@ -1073,7 +1073,7 @@ vector<bigint> bigint::factor(bool verbose) const {
     
     
 #define ITER_COUNT 1000000
-    bool should_break = false;
+    volatile bool should_break = false;
     long long i_step = 0;
     bigint rt_step = rt;
     bigint shared_a = 0;
@@ -1217,40 +1217,42 @@ vector<bigint> bigint::factor(bool verbose) const {
                 }
                 else
                 {
-                    if (!should_break && (should_break = true)) {
-                        // Calculate a and b such that a^2 = b^2 mod n.
-                        bigint a = 1;
-                        bigint b = 1;
-                        vector<int> & v = mat.back().second;
-                        vector<bool> parity(fsz, false);
-                        for(int k = 0; k < v.size(); k++)
-                        {
-                            a *= field[v[k]].first; a %= n;
-                            bigint val = field[v[k]].second;
-                            for(int s = 0; s < f_base.size(); s++)
+                    if (!should_break) {
+                        if (!should_break && (should_break = true)) {
+                            // Calculate a and b such that a^2 = b^2 mod n.
+                            bigint a = 1;
+                            bigint b = 1;
+                            vector<int> & v = mat.back().second;
+                            vector<bool> parity(fsz, false);
+                            for(int k = 0; k < v.size(); k++)
                             {
-                                while(val % f_base[s].first == 0)
+                                a *= field[v[k]].first; a %= n;
+                                bigint val = field[v[k]].second;
+                                for(int s = 0; s < f_base.size(); s++)
                                 {
-                                    val /= f_base[s].first;
-                                    parity[s] = !parity[s];
-                                    if(!parity[s])
+                                    while(val % f_base[s].first == 0)
                                     {
-                                        b *= f_base[s].first; b %= n;
+                                        val /= f_base[s].first;
+                                        parity[s] = !parity[s];
+                                        if(!parity[s])
+                                        {
+                                            b *= f_base[s].first; b %= n;
+                                        }
                                     }
                                 }
                             }
+                            if(a < b)
+                            {
+                                a.swap(b);
+                            }
+                            
+                            if(a * a % n != b * b % n)
+                            {
+                                cout << "Computation error: squares not congruent" << endl;
+                            }
+                            shared_a = a;
+                            shared_b = b;
                         }
-                        if(a < b)
-                        {
-                            a.swap(b);
-                        }
-                        
-                        if(a * a % n != b * b % n)
-                        {
-                            cout << "Computation error: squares not congruent" << endl;
-                        }
-                        shared_a = a;
-                        shared_b = b;
                     }
                 }
             }
@@ -1270,7 +1272,6 @@ vector<bigint> bigint::factor(bool verbose) const {
         bigint factor = f.gcd(n);
         if(factor != 1 && factor != n)
         {
-            should_break = true;
             // Divide and recursively factor each half and merge the lists.
             vector<bigint> fa = factor.factor(verbose);
             vector<bigint> fb = (n / factor).factor(verbose);
